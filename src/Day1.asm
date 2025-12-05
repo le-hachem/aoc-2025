@@ -1,33 +1,54 @@
-; Advent of Code 2025 - Day 1.1
+; Advent of Code 2025 - Day 1
 
-; #include <stddef.h>
+;
 ; #include <stdio.h>
 ; #include <stdlib.h>
+; #include <stddef.h>
 ; #include <stdint.h>
 ;
 ; int main(void)
 ; {
 ;     FILE* input = fopen("input/day1.txt", "r");
 ;
-;     int32_t angle = 50;
-;     int32_t password = 0;
+;     int32_t angle1 = 50;
+;     int32_t angle2 = 50;
+;
+;     int32_t password1 = 0;
+;     int32_t password2 = 0;
 ;
 ;     char line[256];
 ;     while (fgets(line, sizeof(line), input))
 ;     {
 ;         int32_t direction = (line[0] == 'L') ? -1 : 1;
-;         int32_t steps = atoi(line + 1);
+;         int32_t steps     = atoi(line + 1);
 ;
-;         angle += direction * steps;
-;         angle = (angle % 100 + 100) % 100;
+;         // part 1
+;         angle1 += direction * steps;
+;         angle1 %= 100;
+;         if (angle1 < 0)
+;             angle1 += 100;
+;         if (angle1 == 0)
+;             password1++;
 ;
-;         if (angle == 0)
-;             password++;
+;         // part 2
+;         for (int i = 0; i < steps; i++)
+;         {
+;             angle2 += direction;
+;             if (angle2 == 100)
+;                 angle2 = 0;
+;             else if (angle2 == -1)
+;                 angle2 = 99;
+;             if (angle2 == 0)
+;                 password2++;
+;         }
 ;     }
 ;
 ;     fclose(input);
-;     printf("Password: %d\n", password);
+;
+;     printf("Password 1: %d\n", password1);
+;     printf("Password 2: %d\n", password2);
 ; }
+;
 
 global _start
 
@@ -42,16 +63,22 @@ global _start
 
 section .data
     inputPath db "input/day1.txt", 0
-    newline   db 10                ; '\n'
+    newline   db 10
 
-    angle    dd 50                 ; initial angle
-    password dd 0                  ; result counter
+    label1 db "Password 1: ", 0
+    label2 db "Password 2: ", 0
+
+    angle1    dd 50
+    angle2    dd 50
+
+    password1 dd 0
+    password2 dd 0
 
 section .bss
-    buffer       resb 4096         ; chunk read buffer
-    lineBuffer   resb 256          ; one line max 255 chars + NUL
-    numberBuffer resb 16           ; for PrintInt
-    lineLen      resd 1            ; current line length
+    buffer       resb 4096
+    lineBuffer   resb 256
+    numberBuffer resb 16
+    lineLen      resd 1
 
 section .text
 
@@ -64,7 +91,6 @@ _start:
 
     mov esi, eax           ; fd in ESI
     mov dword [lineLen], 0 ; no chars in current line yet
-
 ReadLoop:
     ; read up to 4096 bytes
     mov eax, SYS_READ
@@ -74,14 +100,14 @@ ReadLoop:
     int 0x80
 
     cmp eax, 0
-    jle EOF         ; 0 or negative = EOF or error
+    jle EOF         ; <=0 -> EOF or error
 
     mov edi, buffer ; scan pointer
-    mov ecx, eax    ; bytes remaining in this chunk
+    mov ebp, eax    ; bytes remaining in this chunk
 
 ScanChunk:
-    cmp ecx, 0
-    je ReadLoop   ; chunk done, read next
+    cmp ebp, 0
+    je ReadLoop ; chunk done, read next
 
     mov al, [edi]
 
@@ -94,73 +120,88 @@ ScanChunk:
     cmp al, 10
     je EndOfLine
 
-    ; normal character: append to lineBuffer if space left
+    ; normal character -> append to lineBuffer if space left
     mov edx, [lineLen]
-    cmp edx, 255  ; leave 1 byte for NUL
-    jae SkipStore ; ignore extra chars if too long
-    mov [lineBuffer + edx], al
+    cmp edx, 255  ; leave 1 byte for NULL
+    jae SkipStore ; ignore extra characters if too long
+    mov [lineBuffer+edx], al
     inc edx
     mov [lineLen], edx
 
 SkipStore:
     inc edi
-    dec ecx
+    dec ebp
     jmp ScanChunk
 
 SkipCR:
     inc edi
-    dec ecx
+    dec ebp
     jmp ScanChunk
 
 EndOfLine:
     ; terminate current line
     mov edx, [lineLen]
-    mov byte [lineBuffer + edx], 0
+    mov byte [lineBuffer+edx], 0
 
     ; if line isn't empty, process it
     cmp edx, 0
     je LineDone
 
     push esi
+    push edi
     mov esi, lineBuffer
     call HandleLine
+    pop edi
     pop esi
 
 LineDone:
     mov dword [lineLen], 0 ; reset line length
     inc edi
-    dec ecx
+    dec ebp
     jmp ScanChunk
+
 
 ; process last line if not newline-terminated, then print result
 EOF:
     ; if there is a partial line at EOF, process it
     mov edx, [lineLen]
     cmp edx, 0
-    jle FinishEOF
-    mov byte [lineBuffer + edx], 0
+    jle PrintResults
+    mov byte [lineBuffer+edx], 0
 
     push esi
     mov esi, lineBuffer
     call HandleLine
     pop esi
 
-FinishEOF:
-    mov eax, [password]
+PrintResults:
+    mov ecx, label1
+    call PrintString
+    mov eax, [password1]
     call PrintInt
 
-    ; newline after result
+    ; newline
     mov eax, SYS_WRITE
     mov ebx, STDOUT
     mov ecx, newline
     mov edx, 1
     int 0x80
 
-    ; close file and exit
+    mov ecx, label2
+    call PrintString
+    mov eax, [password2]
+    call PrintInt
+
+    ; newline
+    mov eax, SYS_WRITE
+    mov ebx, STDOUT
+    mov ecx, newline
+    mov edx, 1
+    int 0x80
+
     mov eax, SYS_CLOSE
     mov ebx, esi
     int 0x80
-
     mov eax, SYS_EXIT
     xor ebx, ebx
     int 0x80
@@ -171,48 +212,74 @@ HandleLine:
     mov al, [esi]
     cmp al, 'L'
     je .left
-    mov ebx, 1    ; direction = +1 for 'R' or anything else
+    mov ebx, 1  ; direction = +1 for 'R' or anything else
     jmp .after
 .left:
-    mov ebx, -1   ; direction = -1 for 'L'
+    mov ebx, -1 ; direction = -1 for 'L'
 .after:
     inc esi       ; skip 'L' or 'R'
     call ParseInt ; EAX = steps
+    mov ecx, eax
 
-    imul eax, ebx ; EAX = dir * steps
+.part1
+    mov eax, ecx
+    imul eax, ebx      ; EAX = dir*steps
+    mov edx, [angle1]
+    add edx, eax       ; update angle (can be out of range signed)
 
-    mov edx, [angle]
-    add edx, eax  ; update angle (can be out of range, signed)
-
-    ; normalize edx into [0, 100[ using repeated +/-100 (no division)
-NormLoop:
+; normalize edx into [0; 100[ using repeated +- 100
+Norm1:
     cmp edx, 0
-    jl NormAdd
+    jl N1Add
     cmp edx, 100
-    jl NormDone
+    jl N1Done
     sub edx, 100
-    jmp NormLoop
-
-NormAdd:
+    jmp Norm1
+N1Add:
     add edx, 100
-    jmp NormLoop
-
-NormDone:
-    mov [angle], edx
-
+    jmp Norm1
+N1Done:
+    mov [angle1], edx
     cmp edx, 0
-    jne .done
-    mov eax, [password]
+    jne .startPart2
+    mov eax, [password1]
     inc eax
-    mov [password], eax
+    mov [password1], eax
+
+; Part 2
+.startPart2:
+    mov edi, ebx
+
+part2Loop:
+    test ecx, ecx
+    jle .done
+    dec ecx
+
+    mov edx, [angle2]
+    add edx, edi
+    cmp edx, 100
+    jne .checkNegative
+    mov edx, 0
+    jmp .p2store
+.checkNegative:
+    cmp edx, -1
+    jne .p2store
+    mov edx, 99
+.p2store:
+    mov [angle2], edx
+    cmp edx, 0
+    jne part2Loop
+    mov eax, [password2]
+    inc eax
+    mov [password2], eax
+    jmp part2Loop
 .done:
     ret
 
-; ParseInt: - parse decimal number at [ESI] into EAX
-;           - stops at first non-digit
-ParseInt:
-    xor eax, eax      ; result = 0
 
+; parse ASCII integer into EAX
+ParseInt:
+    xor eax, eax ; result = 0
 .parseLoop:
     mov dl, [esi]
     cmp dl, '0'
@@ -220,7 +287,7 @@ ParseInt:
     cmp dl, '9'
     jg .done
 
-    sub dl, '0'       ; digit value 0..9
+    sub dl, '0' ; digit value 0..9
     movzx edx, dl
 
     imul eax, eax, 10 ; result *= 10
@@ -228,55 +295,69 @@ ParseInt:
 
     inc esi
     jmp .parseLoop
-
 .done:
     ret
 
-; PrintInt: print unsigned integer in EAX to stdout
 PrintInt:
-    mov edi, numberBuffer+15   ; write digits from the end
-    mov byte [edi], 0          ; terminator
+    mov edi, numberBuffer+15 ; write digits from the end
+    mov byte [edi], 0        ; terminator
     dec edi
 
     cmp eax, 0
     jne .convert
     mov byte [edi], '0'
     jmp .finish
-
 .convert:
     ; we will repeatedly compute:
     ;   q = eax / 10
     ;   r = eax % 10
     ; using only subtraction
 .nextDigit:
-    mov edx, eax               ; tmp = current value
-    mov ecx, 0                 ; q = 0
+    mov edx, eax   ; tmp = current value
+    mov ecx, 0     ; q = 0
 
-    cmp edx, 10
-    jb .lastDigit             ; if < 10, quotient = 0, remainder = edx
+    cmp edx, 10    ; if < 0,  q=0, r=edx
+    jb .lastDigit
 .subLoop:
     sub edx, 10
-    inc ecx                    ; q++
+    inc ecx        ; q++
     cmp edx, 10
-    jae .subLoop              ; while tmp >= 10
+    jae .subLoop   ; while tmp >= 10
 .lastDigit:
     ; now:
     ;   ecx = quotient
     ;   edx = remainder (0..9)
     add dl, '0'
-    mov [edi], dl              ; store digit
+    mov [edi], dl  ; store digit
     dec edi
-
-    mov eax, ecx               ; eax = quotient
+    mov eax, ecx   ; eax = quotient
     test eax, eax
-    jnz .nextDigit            ; more digits to extract?
+    jnz .nextDigit ; more digits to extract?
 
-    inc edi                    ; move to first digit
+    inc edi        ; move to first digit
 .finish:
     mov eax, SYS_WRITE
     mov ebx, STDOUT
     mov ecx, edi
     mov edx, numberBuffer+15
-    sub edx, edi               ; length
+    sub edx, edi   ; length
     int 0x80
+    ret
+
+PrintString:
+    push ecx
+    push edx
+    mov edx, 0
+.count:
+    cmp byte [ecx+edx], 0
+    je .doneCount
+    inc edx
+    jmp .count
+.doneCount:
+    mov eax, SYS_WRITE
+    mov ebx, STDOUT
+    int 0x80
+
+    pop edx
+    pop ecx
     ret
