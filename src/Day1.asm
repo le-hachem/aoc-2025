@@ -33,11 +33,7 @@
 ;         // part 2
 ;         for (int i = 0; i < steps; i++)
 ;         {
-;             angle2 += direction;
-;             if (angle2 == 100)
-;                 angle2 = 0;
-;             else if (angle2 == -1)
-;                 angle2 = 99;
+;             angle2 = ((angle2 + direction) % 100 + 100) % 100;
 ;             if (angle2 == 0)
 ;                 password2++;
 ;         }
@@ -48,7 +44,6 @@
 ;     printf("Password 1: %d\n", password1);
 ;     printf("Password 2: %d\n", password2);
 ; }
-;
 
 global _start
 
@@ -91,6 +86,7 @@ _start:
 
     mov esi, eax           ; fd in ESI
     mov dword [lineLen], 0 ; no chars in current line yet
+
 ReadLoop:
     ; read up to 4096 bytes
     mov eax, SYS_READ
@@ -112,7 +108,7 @@ ScanChunk:
     mov al, [edi]
 
     ; windows can be a fucking bitch
-    ; handle CR (13) -> just skip
+    ; handle (CR) -> just skip
     cmp al, 13
     je SkipCR
 
@@ -160,7 +156,6 @@ LineDone:
     dec ebp
     jmp ScanChunk
 
-
 ; process last line if not newline-terminated, then print result
 EOF:
     ; if there is a partial line at EOF, process it
@@ -192,7 +187,7 @@ PrintResults:
     mov eax, [password2]
     call PrintInt
 
-    ; newline
+    ; new linhe
     mov eax, SYS_WRITE
     mov ebx, STDOUT
     mov ecx, newline
@@ -205,7 +200,6 @@ PrintResults:
     mov eax, SYS_EXIT
     xor ebx, ebx
     int 0x80
-
 
 ; Handle one line: ESI -> "L123" or "R45"
 HandleLine:
@@ -221,61 +215,62 @@ HandleLine:
     call ParseInt ; EAX = steps
     mov ecx, eax
 
-.part1
-    mov eax, ecx
-    imul eax, ebx      ; EAX = dir*steps
-    mov edx, [angle1]
-    add edx, eax       ; update angle (can be out of range signed)
-
-; normalize edx into [0; 100[ using repeated +- 100
-Norm1:
-    cmp edx, 0
-    jl N1Add
-    cmp edx, 100
-    jl N1Done
-    sub edx, 100
-    jmp Norm1
-N1Add:
-    add edx, 100
-    jmp Norm1
-N1Done:
-    mov [angle1], edx
-    cmp edx, 0
-    jne .startPart2
-    mov eax, [password1]
-    inc eax
-    mov [password1], eax
+; Part 1
+P1_Start:
+    mov eax, [angle1]
+    imul eax, ebx
+    add eax, [angle1]
+    call NormalizeAngle
+    mov [angle1], eax
+    cmp eax, 0
+    jne P2_Start
+    mov edi, password1
+    mov edx, [edi]
+    inc edx
+    mov [edi], edx
 
 ; Part 2
-.startPart2:
-    mov edi, ebx
-
-part2Loop:
+P2_Start:
+    mov edi, password2
+.loop:
     test ecx, ecx
-    jle .done
+    jle P2_Exit
     dec ecx
 
-    mov edx, [angle2]
-    add edx, edi
-    cmp edx, 100
-    jne .checkNegative
-    mov edx, 0
-    jmp .p2store
-.checkNegative:
-    cmp edx, -1
-    jne .p2store
-    mov edx, 99
-.p2store:
-    mov [angle2], edx
-    cmp edx, 0
-    jne part2Loop
-    mov eax, [password2]
-    inc eax
-    mov [password2], eax
-    jmp part2Loop
+    mov eax, [angle2]
+    call UpdateAngleCount
+    mov [angle2], eax
+
+    jmp .loop
+P2_Exit:
+    ret
+
+; normalize eax to 0..99
+NormalizeAngle:
+    cmp eax, 0
+    jl .add
+    cmp eax, 100
+    jl .done
+    sub eax, 100
+    jmp NormalizeAngle
+.add:
+    add eax, 100
+    jmp NormalizeAngle
 .done:
     ret
 
+; eax = angle, ebx = direction, edi = password counter addr
+UpdateAngleCount:
+    add eax, ebx
+    call NormalizeAngle
+
+    cmp eax, 0
+    jne .done
+    mov edx, [edi]
+    inc edx
+    mov [edi], edx
+.done:
+    ret
 
 ; parse ASCII integer into EAX
 ParseInt:
