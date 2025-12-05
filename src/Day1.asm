@@ -217,7 +217,7 @@ HandleLine:
 
 ; Part 1
 P1_Start:
-    mov eax, [angle1]
+    mov eax, ecx
     imul eax, ebx
     add eax, [angle1]
     call NormalizeAngle
