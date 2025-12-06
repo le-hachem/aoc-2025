@@ -1,9 +1,12 @@
 ; Advent of Code 2025 - Day 2
 
+bits 64
+default rel
+
 global _start
 
-%define SYS_EXIT  1
-%define SYS_WRITE 4
+%define SYS_EXIT  60
+%define SYS_WRITE 1
 
 %define STDOUT    1
 
@@ -13,12 +16,12 @@ section .data
 
 section .text
 _start:
-    mov eax, SYS_WRITE
-    mov ebx, STDOUT
-    mov ecx, message
-    mov edx, length
-    int 0x80
+    mov rax, SYS_WRITE
+    mov rdi, STDOUT
+    mov rsi, message
+    mov rdx, length
+    syscall
 
-    mov eax, SYS_EXIT
-    xor ebx, ebx
-    int 0x80
+    mov rax, SYS_EXIT
+    xor rdi, rdi
+    syscall

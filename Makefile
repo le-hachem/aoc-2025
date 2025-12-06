@@ -4,8 +4,8 @@ LD ?= ld
 SRC_DIR := src
 BUILD_DIR := build
 
-NASMFLAGS ?= -f elf32 -g -F dwarf
-LDFLAGS ?= -m elf_i386
+NASMFLAGS ?= -f elf64
+LDFLAGS ?= -m elf_x86_64
 
 DAYS := Day1 Day2
 ASM_SRCS := $(addprefix $(SRC_DIR)/,$(addsuffix .asm,$(DAYS)))
