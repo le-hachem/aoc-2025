@@ -7,14 +7,12 @@ BUILD_DIR := build
 NASMFLAGS ?= -f elf64
 LDFLAGS ?= -m elf_x86_64
 
-DAYS := Day1 Day2 Day3
-ASM_SRCS := $(addprefix $(SRC_DIR)/,$(addsuffix .asm,$(DAYS)))
-OBJ_FILES := $(addprefix $(BUILD_DIR)/,$(addsuffix .o,$(DAYS)))
+DAYS := Day1 Day2 Day3 Day4  Day5  Day6 \
+		Day7 Day8 Day9 Day10 Day11 Day12
 BINARIES := $(addprefix $(BUILD_DIR)/,$(DAYS))
 
-.PHONY: all clean \
-	    day1 day2 day3 \
-		list run-day%
+.PHONY: all clean list
+.PHONY: day% run-day%
 
 all: $(BINARIES)
 
@@ -22,17 +20,14 @@ $(BUILD_DIR):
 	@mkdir -p $(BUILD_DIR)
 
 $(BUILD_DIR)/Day%.o: $(SRC_DIR)/Day%.asm | $(BUILD_DIR)
-	$(NASM) $(NASMFLAGS) $< -o $@
+	@$(NASM) $(NASMFLAGS) $< -o $@
 
 $(BUILD_DIR)/Day%: $(BUILD_DIR)/Day%.o
-	$(LD) $(LDFLAGS) -o $@ $<
+	@$(LD) $(LDFLAGS) -o $@ $<
 
-day1: $(BUILD_DIR)/Day1
-day2: $(BUILD_DIR)/Day2
-day3: $(BUILD_DIR)/Day3
-
+day%: $(BUILD_DIR)/Day%
 run-day%: $(BUILD_DIR)/Day%
-	./$(BUILD_DIR)/Day$*
+	@./$<
 
 list:
 	@printf "Available days:\n"

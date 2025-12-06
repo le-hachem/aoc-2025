@@ -1,37 +1,37 @@
 # Advent of Code - 2025
-yes, i started late.
-yes, i wrote it in x86_64 assembly.
-no, there is no absolutely no good reason for this.
-no, i'm not okay.
+Yes, I started late.
+Yes, I wrote it in x86_64 assembly.
+No, there is no absolutely no good reason for this.
+No, I'm not okay.
 
 ### Why assembly?
-because i was really bored and i wanted more of an excuse to procrastinate.
+Because I was really bored and I wanted more of an excuse to procrastinate.
 
 also: **aura**.
 
-## Building
-```sh
-$ make day[1-12]
-# example:
-$ make day1
-$ make day2
-```
-
-## Running
+## Building & Running
 ```sh
 $ make run-day[1-12]
 # example:
 $ make run-day1
 $ make run-day2
 ```
-or manually, after building
+If you just want to build the binaries without running them do `make day[1-12]`.
 
+## Docker
+If you do not have `nasm`/`ld` locally, build the container:
 ```sh
-$ ./build/day[1-12]
-# example
-$ ./build/day1
-$ ./build/day2
-$ ./build/day3
+$ docker build -t aoc-2025 .
+```
+Run a specific puzzle directly
+```sh
+$ docker run aoc-2025 day4
+$ docker run aoc-2025 day5
+```
+Running with no arguments (`docker run aoc-2025`) will list the available targets. If you only want to build a binary, use `build-day[1-12]`.
+When you're done, delete the image:
+```sh
+$ docker rmi aoc-2025
 ```
 
 ## License
